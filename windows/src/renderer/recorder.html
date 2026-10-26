@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-Hans">
+<meta charset="utf-8">
+<title>DogSC</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  html, body { background: transparent; }
+  body { display: flex; align-items: center; justify-content: center; }
+  .bar { -webkit-app-region: drag; display: flex; align-items: center; gap: 6px; height: 88px; padding: 0 16px; border-radius: 26px; background: rgba(250, 250, 249, 0.97); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.07), 0 12px 32px rgba(0, 0, 0, 0.22); }
+  .bar button, .bar .status { -webkit-app-region: no-drag; }
+  .source { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 78px; height: 68px; border-radius: 14px; color: var(--ink-soft); font-size: 12px; }
+  .source svg.icon { width: 28px; height: 28px; stroke-width: 1.5; }
+  .source span { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .source:hover { background: rgba(0, 0, 0, 0.05); }
+  .source.active { background: var(--accent-soft); color: #6B4A16; font-weight: 600; }
+  .divider { width: 1px; height: 42px; background: var(--line); margin: 0 8px; }
+  .toggle { position: relative; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #fff; box-shadow: 0 0 0 1px var(--line), 0 2px 6px rgba(0, 0, 0, 0.06); color: var(--muted); }
+  .toggle svg.icon { width: 24px; height: 24px; }
+  .toggle::after { content: ""; position: absolute; right: 2px; bottom: 2px; width: 9px; height: 9px; border-radius: 50%; background: #C4C5C9; box-shadow: 0 0 0 2px #fff; }
+  .toggle.on { color: var(--ink); }
+  .toggle.on::after { background: var(--ok); }
+  .record { display: flex; align-items: center; gap: 8px; height: 50px; padding: 0 20px 0 14px; border-radius: 25px; background: var(--danger); color: #fff; font-weight: 700; font-size: 14px; }
+  .record:hover:not(:disabled) { filter: brightness(1.06); }
+  .round { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--ink-soft); }
+  .round:hover { background: rgba(0, 0, 0, 0.06); }
+  .status { display: flex; flex-direction: column; min-width: 150px; max-width: 320px; padding: 0 10px; }
+  .status b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .timer { font: 700 22px/1 "Cascadia Mono", Consolas, monospace; letter-spacing: 0.5px; min-width: 92px; text-align: center; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--danger); animation: blink 1.2s infinite; margin: 0 6px 0 4px; }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  .error { color: var(--danger); }
+  [hidden] { display: none !important; }
+</style>
+<body>
+  <div class="bar">
+    <!-- 待机：选来源与输入 -->
+    <div id="idle" style="display:contents">
+      <button class="source" data-source="display"></button>
+      <button class="source" data-source="window"></button>
+      <button class="source" data-source="area"></button>
+      <div class="divider"></div>
+      <button class="toggle" id="mic" title="麦克风（右键选择设备）"></button>
+      <button class="toggle" id="cam" title="摄像头（右键选择设备）"></button>
+      <button class="toggle" id="sys" title="系统声音"></button>
+      <div class="divider"></div>
+      <button class="record" id="start"></button>
+      <div class="status" id="hint"><b></b><small></small></div>
+      <button class="round" id="library" title="项目库"></button>
+      <button class="round" id="memo" title="悬浮备忘录"></button>
+      <button class="round" id="quit" title="退出"></button>
+    </div>
+    <!-- 录制中 -->
+    <div id="live" style="display:contents" hidden>
+      <div class="dot"></div>
+      <div class="timer" id="timer">00:00</div>
+      <div class="divider"></div>
+      <button class="btn" id="marker" title="留下剪辑标记（Ctrl+Alt+M）"></button>
+      <button class="btn ghost" id="memo2" title="悬浮备忘录"></button>
+      <div class="status"><b id="liveTitle"></b><small id="liveDetail"></small></div>
+      <button class="btn ghost danger" id="discard">放弃</button>
+      <button class="record" id="stop" style="background:var(--ink)"></button>
+    </div>
+    <!-- 整理素材 -->
+    <div id="busy" style="display:contents" hidden>
+      <div class="status" style="min-width:420px"><b id="busyTitle">正在整理素材…</b><small>结束前请不要关闭 DogSC</small></div>
+    </div>
+    <!-- 录制完成 -->
+    <div id="done" style="display:contents" hidden>
+      <div class="status" style="min-width:230px;max-width:540px"><b id="doneTitle"></b><small id="doneDetail"></small></div>
+      <button class="btn primary" id="edit">进入编辑</button>
+      <button class="btn" id="reveal">在文件夹中显示</button>
+      <button class="btn ghost" id="again">继续录制</button>
+    </div>
+  </div>
+  <script src="recorder.js"></script>
+</body>
+</html>

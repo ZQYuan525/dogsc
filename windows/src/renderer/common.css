@@ -1,0 +1,41 @@
+/* DogSC Windows 版共用样式：浅色、柔和卡片，贴近 macOS 版的观感。 */
+:root {
+  --bg: #F3F4F2;
+  --panel: #FFFFFF;
+  --panel-soft: #F6F6F4;
+  --ink: #1D1D1F;
+  --ink-soft: #55565B;
+  --muted: #8A8B90;
+  --line: rgba(0, 0, 0, 0.08);
+  --accent: #B9812F;
+  --accent-soft: #EFE3CC;
+  --zoom: #DCCBA7;
+  --danger: #D9463B;
+  --ok: #3FA66B;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 10px 30px rgba(0, 0, 0, 0.07);
+  --font: "DogSC PuHui", "Microsoft YaHei UI", "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { font: 13px/1.45 var(--font); color: var(--ink); background: var(--bg); -webkit-font-smoothing: antialiased; user-select: none; overflow: hidden; }
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; padding: 0; }
+button:disabled { opacity: 0.4; cursor: default; }
+input, select, textarea { font: inherit; color: inherit; }
+svg.icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 10px; background: var(--panel); box-shadow: 0 0 0 1px var(--line), 0 1px 2px rgba(0, 0, 0, 0.04); font-weight: 600; white-space: nowrap; }
+.btn:hover:not(:disabled) { background: #FAFAF9; }
+.btn.primary { background: var(--ink); color: #fff; box-shadow: none; }
+.btn.primary:hover:not(:disabled) { background: #2E2E31; }
+.btn.ghost { box-shadow: none; background: transparent; }
+.btn.ghost:hover:not(:disabled) { background: rgba(0, 0, 0, 0.05); }
+.btn.icon-only { width: 34px; padding: 0; justify-content: center; }
+.btn.danger { color: var(--danger); }
+
+.card { background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); }
+.muted { color: var(--muted); }
+.spacer { flex: 1; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.16); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(0, 0, 0, 0.28); }

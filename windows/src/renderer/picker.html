@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-Hans">
+<meta charset="utf-8">
+<title>选择要录制的窗口</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  body { display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 12px; padding: 16px 20px 10px; }
+  header h1 { margin: 0; font-size: 17px; }
+  #grid { flex: 1; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; padding: 8px 20px 20px; align-content: start; }
+  .item { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 14px; background: var(--panel); box-shadow: 0 0 0 1px var(--line); text-align: left; }
+  .item:hover { box-shadow: 0 0 0 2px var(--accent); }
+  .thumb { height: 150px; border-radius: 8px; background: var(--panel-soft) center / contain no-repeat; }
+  .item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  #empty { padding: 60px 20px; text-align: center; color: var(--muted); }
+</style>
+<body>
+  <header>
+    <h1>选择要录制的窗口</h1>
+    <span class="muted">录制时会把它切到前台，按窗口当前的位置和大小采集；录制过程中请不要移动或遮挡它。</span>
+    <span class="spacer"></span>
+    <button class="btn" id="refresh">刷新</button>
+  </header>
+  <div id="grid"></div>
+  <script>
+    'use strict';
+    const { element } = require('./common');
+    const { ipcRenderer } = require('electron');
+    const grid = document.getElementById('grid');
+    async function load() {
+      grid.replaceChildren(element('div', { id: 'empty' }, '正在读取窗口列表…'));
+      const windows = await ipcRenderer.invoke('recorder:windows');
+      if (!windows.length) {
+        grid.replaceChildren(element('div', { id: 'empty' }, '没有找到可录制的窗口。最小化的窗口不会出现在这里，先把它还原再点「刷新」。'));
+        return;
+      }
+      grid.replaceChildren(...windows.map((item) => element('button', { class: 'item', title: item.title, onclick: () => ipcRenderer.send('picker:done', { hwnd: item.hwnd, title: item.title }) },
+        element('div', { class: 'thumb', style: item.thumbnail ? `background-image:url(${item.thumbnail})` : '' }),
+        element('span', {}, item.title))));
+    }
+    document.getElementById('refresh').addEventListener('click', load);
+    window.addEventListener('keydown', (event) => { if (event.key === 'Escape') window.close(); });
+    load();
+  </script>
+</body>
+</html>

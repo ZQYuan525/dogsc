@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-Hans">
+<meta charset="utf-8">
+<title>DogSC</title>
+<link rel="stylesheet" href="common.css">
+<link rel="stylesheet" href="editor.css">
+<body>
+  <header class="topbar">
+    <button class="btn ghost icon-only" id="open-library" title="项目库"></button>
+    <input id="project-name" spellcheck="false" title="点击改名">
+    <span class="muted" id="save-state"></span>
+    <span class="spacer"></span>
+    <div class="group">
+      <button class="btn ghost icon-only" id="undo" title="撤销（Ctrl+Z）"></button>
+      <button class="btn ghost icon-only" id="redo" title="重做（Ctrl+Shift+Z）"></button>
+    </div>
+    <button class="btn" id="shortcuts" title="快捷键">快捷键</button>
+    <button class="btn primary" id="export"></button>
+  </header>
+
+  <main class="workspace">
+    <nav class="rail card" id="rail"></nav>
+    <section class="stage" id="stage">
+      <div class="ratio card" id="ratio"></div>
+      <div class="canvas-wrap" id="canvas-wrap"><canvas id="preview"></canvas></div>
+    </section>
+    <aside class="inspector card"><h2 id="inspector-title"></h2><div id="inspector"></div></aside>
+  </main>
+
+  <footer class="timeline card">
+    <div class="toolbar">
+      <button class="btn ghost icon-only" id="split" title="在播放头处分割（S）"></button>
+      <button class="btn ghost icon-only" id="delete" title="删除选中的片段或缩放（Delete）"></button>
+      <button class="btn ghost" id="speed" title="选中片段的播放速度"></button>
+      <button class="btn ghost" id="add-zoom" title="在播放头处添加缩放（Z）"></button>
+      <span class="spacer"></span>
+      <button class="btn ghost icon-only" id="previous" title="上一个剪辑点"></button>
+      <button class="btn icon-only play" id="play" title="播放 / 暂停（空格）"></button>
+      <button class="btn ghost icon-only" id="next" title="下一个剪辑点"></button>
+      <span class="clock"><b id="clock-now">00:00.00</b> / <span id="clock-total">00:00.00</span></span>
+      <span class="spacer"></span>
+      <button class="btn ghost icon-only" id="zoom-out" title="缩小时间线"></button>
+      <input id="timeline-zoom" type="range" min="0" max="1" step="0.001" value="0">
+      <button class="btn ghost icon-only" id="zoom-in" title="放大时间线"></button>
+    </div>
+    <div class="tracks">
+      <div class="labels">
+        <div class="label ruler-label"></div>
+        <div class="label" id="label-screen"></div>
+        <div class="label" id="label-zoom"></div>
+      </div>
+      <div class="scroller" id="scroller">
+        <div class="lanes" id="lanes">
+          <div class="ruler" id="ruler"></div>
+          <div class="lane screen" id="lane-screen"></div>
+          <div class="lane zoom" id="lane-zoom" title="双击空白处添加缩放"></div>
+          <div class="playhead" id="playhead"><i></i></div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <div class="modal" id="modal" hidden></div>
+  <div class="toast" id="toast" hidden></div>
+  <script>require('./editor/app.js');</script>
+</body>
+</html>

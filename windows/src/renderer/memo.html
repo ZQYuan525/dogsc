@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-Hans">
+<meta charset="utf-8">
+<title>备忘录</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  html, body { background: transparent; }
+  .memo { position: absolute; inset: 8px; display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 8px 22px rgba(0, 0, 0, 0.22); background: rgba(255, 253, 244, var(--opacity, 0.96)); }
+  header { -webkit-app-region: drag; display: flex; align-items: center; gap: 2px; height: 36px; padding: 0 6px 0 12px; font-weight: 600; color: var(--ink-soft); }
+  header button, header input { -webkit-app-region: no-drag; }
+  header button { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  header button:hover { background: rgba(0, 0, 0, 0.07); }
+  header input { width: 64px; accent-color: var(--accent); }
+  textarea { flex: 1; resize: none; border: 0; outline: 0; background: transparent; padding: 4px 14px 12px; line-height: 1.6; user-select: text; }
+</style>
+<body>
+  <div class="memo" id="memo">
+    <header>
+      <span>备忘录</span><span class="spacer"></span>
+      <input id="opacity" type="range" min="0.35" max="1" step="0.01" title="背景不透明度">
+      <button id="smaller" title="缩小字号">A−</button>
+      <button id="larger" title="放大字号">A+</button>
+      <button id="close" title="关闭"></button>
+    </header>
+    <textarea id="text" placeholder="录制时要讲的要点写在这里。它会一直悬浮在最上层，但不会被录进画面。" spellcheck="false"></textarea>
+  </div>
+  <script>
+    'use strict';
+    const fs = require('node:fs');
+    const { icon, query } = require('./common');
+    const { ipcRenderer } = require('electron');
+    const store = query.get('store');
+    let memo = { text: '', fontSize: 16, opacity: 0.96 };
+    try { memo = { ...memo, ...JSON.parse(fs.readFileSync(store, 'utf8')) }; } catch { /* 第一次使用 */ }
+    const text = document.getElementById('text');
+    const apply = () => {
+      text.style.fontSize = `${memo.fontSize}px`;
+      document.getElementById('memo').style.setProperty('--opacity', memo.opacity);
+      document.getElementById('opacity').value = memo.opacity;
+    };
+    // 文稿自动保存在本机，重启后还在。
+    let pending = null;
+    const save = () => {
+      clearTimeout(pending);
+      pending = setTimeout(() => fs.writeFileSync(store, JSON.stringify(memo)), 250);
+    };
+    text.value = memo.text;
+    text.addEventListener('input', () => { memo.text = text.value; save(); });
+    document.getElementById('opacity').addEventListener('input', (event) => { memo.opacity = Number(event.target.value); apply(); save(); });
+    document.getElementById('smaller').addEventListener('click', () => { memo.fontSize = Math.max(memo.fontSize - 2, 11); apply(); save(); });
+    document.getElementById('larger').addEventListener('click', () => { memo.fontSize = Math.min(memo.fontSize + 2, 40); apply(); save(); });
+    document.getElementById('close').innerHTML = icon('close');
+    document.getElementById('close').addEventListener('click', () => { fs.writeFileSync(store, JSON.stringify(memo)); ipcRenderer.send('window:close'); });
+    apply();
+  </script>
+</body>
+</html>

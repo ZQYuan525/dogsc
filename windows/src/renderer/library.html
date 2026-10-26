@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-Hans">
+<meta charset="utf-8">
+<title>DogSC 项目库</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  body { display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 12px; padding: 20px 26px 12px; }
+  header h1 { margin: 0; font-size: 20px; }
+  #grid { flex: 1; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; padding: 10px 26px 26px; align-content: start; }
+  .project { position: relative; display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; background: var(--panel); box-shadow: var(--shadow); cursor: pointer; }
+  .project:hover { box-shadow: 0 0 0 2px var(--accent), var(--shadow); }
+  .thumb { height: 150px; background: #1b1c20 no-repeat; }
+  .meta { padding: 12px 14px 14px; }
+  .meta b { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .more { position: absolute; top: 8px; right: 8px; display: none; gap: 6px; }
+  .project:hover .more { display: flex; }
+  .more button { width: 32px; height: 32px; border-radius: 10px; background: rgba(255, 255, 255, 0.94); display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2); }
+  .more button:hover { background: #fff; }
+  .badge { position: absolute; left: 10px; top: 118px; padding: 1px 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.62); color: #fff; font-size: 12px; font-weight: 600; }
+  #empty { grid-column: 1 / -1; padding: 80px 20px; text-align: center; color: var(--muted); font-size: 15px; }
+  #empty b { display: block; color: var(--ink); font-size: 18px; margin-bottom: 8px; }
+  .credit { flex: none; padding: 10px 26px 14px; color: var(--muted); font-size: 12px; user-select: text; }
+</style>
+<body>
+  <header>
+    <h1>项目库</h1>
+    <span class="muted" id="root"></span>
+    <span class="spacer"></span>
+    <button class="btn" id="open-root"></button>
+    <button class="btn primary" id="record"></button>
+  </header>
+  <div id="grid"></div>
+  <footer class="credit">DogSC 原创作者：神烦老狗（github.com/laogou717/dogsc）· 本程序为 Windows 适配版，非原作者官方发布 · MIT License</footer>
+  <script>
+    'use strict';
+    const { icon, element, formatTime, fileUrl } = require('./common');
+    const { ipcRenderer } = require('electron');
+    const grid = document.getElementById('grid');
+    document.getElementById('record').innerHTML = `${icon('record')}新建录制`;
+    document.getElementById('open-root').innerHTML = `${icon('folder')}打开项目文件夹`;
+    document.getElementById('record').addEventListener('click', () => ipcRenderer.send('recorder:show'));
+
+    function card(project) {
+      const thumb = element('div', { class: 'thumb' });
+      if (project.thumbnails) {
+        // 缩略图是一张横向拼图：取中间一格当封面。
+        const index = Math.floor(project.thumbnails.count / 2);
+        const height = 150;
+        const tileWidth = height * project.width / project.height;
+        thumb.style.backgroundImage = `url("${fileUrl(project.thumbnails.file)}")`;
+        thumb.style.backgroundSize = `${tileWidth * project.thumbnails.count}px ${height}px`;
+        thumb.style.backgroundPosition = `${-index * tileWidth}px 0`;
+      }
+      const created = project.createdAt ? new Date(project.createdAt).toLocaleString('zh-CN', { hour12: false }).replace(/:\d\d$/, '') : '';
+      return element('div', { class: 'project', title: project.directory, onclick: () => ipcRenderer.invoke('project:open', project.directory) },
+        thumb,
+        element('span', { class: 'badge' }, formatTime(project.duration, false)),
+        element('div', { class: 'meta' }, element('b', {}, project.name), element('span', { class: 'muted' }, `${created} · ${project.width}×${project.height}`)),
+        element('div', { class: 'more' },
+          element('button', { title: '在文件夹中显示', html: icon('reveal'), onclick: (event) => { event.stopPropagation(); ipcRenderer.send('project:reveal', project.directory); } }),
+          element('button', { title: '移到回收站', html: icon('trash'), onclick: async (event) => { event.stopPropagation(); if (await ipcRenderer.invoke('project:trash', project.directory)) load(); } })));
+    }
+
+    async function load() {
+      const environment = await ipcRenderer.invoke('app:environment');
+      document.getElementById('root').textContent = environment.projectsRoot;
+      document.getElementById('open-root').onclick = () => ipcRenderer.send('shell:open', environment.projectsRoot);
+      const projects = await ipcRenderer.invoke('project:list');
+      if (!projects.length) {
+        grid.replaceChildren(element('div', { id: 'empty' }, element('b', {}, '还没有项目'), '点右上角「新建录制」录一段屏幕，结束后会自动保存到这里。'));
+        return;
+      }
+      grid.replaceChildren(...projects.map(card));
+    }
+    ipcRenderer.on('library:refresh', load);
+    window.addEventListener('focus', load);
+    load();
+  </script>
+</body>
+</html>

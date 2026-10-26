@@ -1,0 +1,124 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>DogSC 自测</title>
+<body style="background:#111;color:#ddd;font:14px monospace">
+<pre id="log"></pre>
+<script>
+'use strict';
+// 端到端自测的渲染进程部分：解码素材核对颜色 → 导出 → 把成片解码回来核对颜色与画面。
+const fs = require('node:fs');
+const path = require('node:path');
+const { ipcRenderer } = require('electron');
+const { FrameSource } = require('./editor/frame-source');
+const { exportProject, loadVideoIndex } = require('./editor/export');
+const timeline = require('../core/timeline');
+
+const params = new URLSearchParams(location.search);
+const directory = params.get('project');
+const output = params.get('out');
+const patches = JSON.parse(params.get('patches'));
+const say = (text) => { document.getElementById('log').textContent += `${text}\n`; console.log(text); };
+window.addEventListener('error', (event) => console.log(`uncaught: ${event.message} @ ${event.filename}:${event.lineno}`));
+window.addEventListener('unhandledrejection', (event) => console.log(`unhandled: ${event.reason && event.reason.stack || event.reason}`));
+
+const pixelAt = (ctx, x, y) => Array.from(ctx.getImageData(Math.round(x) - 2, Math.round(y) - 2, 5, 5).data.slice(48, 51));
+const deviation = (a, b) => Math.max(...a.map((value, i) => Math.abs(value - b[i])));
+const savePng = async (canvas, name) => fs.writeFileSync(path.join(output, name), Buffer.from(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer()));
+
+/// 成片用与素材相同的 WebCodecs 路径解码（按码流里的色彩标记还原 RGB）。
+let exportedSource = null;
+async function decodeExportedFrame(file, time) {
+  if (!exportedSource) {
+    exportedSource = new FrameSource(file, await ipcRenderer.invoke('project:rebuild-index', file));
+    await exportedSource.open();
+  }
+  const frame = await exportedSource.frameAt(time);
+  const canvas = new OffscreenCanvas(frame.displayWidth, frame.displayHeight);
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(frame, 0, 0);
+  return { canvas, ctx };
+}
+
+async function main() {
+  const project = await ipcRenderer.invoke('project:read', directory);
+  const result = { capture: [], roundTrip: [] };
+
+  // 1. 采集色彩：解码屏幕素材，色卡每一格与原色的最大偏差。
+  say('project loaded');
+  const source = new FrameSource(path.join(directory, project.media.screen.file), await loadVideoIndex(directory, project.media.screen));
+  await source.open();
+  say(`decoder open: ${source.config.codec} ${source.config.hardwareAcceleration}`);
+  const raw = await source.frameAt(2);
+  say(`frame at 2s: ${raw.timestamp} ${raw.displayWidth}x${raw.displayHeight} ${raw.format}`);
+  const rawCanvas = new OffscreenCanvas(raw.displayWidth, raw.displayHeight);
+  const rawCtx = rawCanvas.getContext('2d', { willReadFrequently: true });
+  rawCtx.drawImage(raw, 0, 0);
+  for (const patch of patches) {
+    const actual = pixelAt(rawCtx, patch.x * raw.displayWidth, patch.y * raw.displayHeight);
+    result.capture.push({ name: patch.name, expected: patch.rgb, actual, deviation: deviation(actual, patch.rgb) });
+  }
+  await savePng(rawCanvas, 'raw-frame.png');
+  source.close();
+  say('capture colours checked');
+
+  // 2. 第一次导出：原始分辨率 30 帧，途中截三张合成画面并记下色卡在成片里的位置。
+  const frameRate = 30;
+  const wanted = new Map([[Math.round(0.3 * frameRate), 'composite-wide.png'], [Math.round(1.6 * frameRate), 'composite-click.png'], [Math.round(2.3 * frameRate), 'composite-zoom.png']]);
+  const probes = [];
+  const first = await exportProject({
+    project, directory, outputFile: path.join(output, 'export-1.mp4'), resolution: 'source', frameRate,
+    onProgress: (progress) => { if (progress.frames % 30 === 0 || progress.stage !== '正在渲染画面') say(`export1 ${progress.stage} ${(progress.fraction * 100).toFixed(0)}%`); },
+    frameHook: async (n, canvas, { scene }) => {
+      if (!wanted.has(n)) return;
+      await savePng(canvas, wanted.get(n));
+      const ctx = canvas.getContext('2d');
+      const rect = scene.screen.finalRect;
+      for (const patch of patches) {
+        const x = rect.x + patch.x * rect.width;
+        const y = rect.y + patch.y * rect.height;
+        if (x < 4 || y < 4 || x > canvas.width - 4 || y > canvas.height - 4) continue;
+        probes.push({ frame: n, name: patch.name, x, y, canvas: pixelAt(ctx, x, y) });
+      }
+      probes.push({ frame: n, name: 'zoomScale', scale: scene.screen.zoom.scale, cursor: Boolean(scene.cursor), camera: Boolean(scene.camera) });
+    },
+  });
+  result.export1 = first;
+  say('export 1 done');
+
+  // 3. 成片色彩：把导出的 MP4 解码回来，与编码前画布上同一点比较。
+  for (const frame of new Set(probes.filter((probe) => probe.canvas).map((probe) => probe.frame))) {
+    const decoded = await decodeExportedFrame(first.outputFile, (frame + 0.5) / frameRate);
+    for (const probe of probes.filter((item) => item.frame === frame && item.canvas)) {
+      const actual = pixelAt(decoded.ctx, probe.x, probe.y);
+      result.roundTrip.push({ frame, name: probe.name, canvas: probe.canvas, decoded: actual, deviation: deviation(actual, probe.canvas) });
+    }
+    if (frame === Math.round(2.3 * frameRate)) await savePng(decoded.canvas, 'export-decoded-zoom.png');
+  }
+  if (exportedSource) exportedSource.close();
+  result.scene = probes.filter((probe) => probe.name === 'zoomScale');
+  say('export colours checked');
+
+  // 4. 第二次导出：剪掉 1–2 秒、末段 2 倍速、1080p 60 帧，核对时长与音频拼接。
+  let segments = timeline.splitAt(project.timeline.segments, 1);
+  segments = timeline.splitAt(segments, 2);
+  segments = timeline.removeSegment(segments, segments[1].id);
+  segments = timeline.setSpeed(segments, segments[1].id, 2);
+  const edited = { ...project, timeline: { segments } };
+  result.expectedDuration2 = timeline.outputDuration(segments);
+  result.export2 = await exportProject({
+    project: edited, directory, outputFile: path.join(output, 'export-2.mp4'), resolution: 'fullHD', frameRate: 60,
+    onProgress: (progress) => { if (progress.frames % 30 === 0 || progress.stage !== '正在渲染画面') say(`export2 ${progress.stage} ${(progress.fraction * 100).toFixed(0)}%`); },
+  });
+  say('export 2 done');
+
+  // 5. 仅音频导出。
+  result.export3 = await exportProject({ project: edited, directory, outputFile: path.join(output, 'export-3.m4a'), kind: 'audio' });
+  return result;
+}
+
+main().then(
+  (result) => ipcRenderer.send('selftest:done', { ok: true, result }),
+  (error) => ipcRenderer.send('selftest:done', { ok: false, error: String(error && error.stack || error) }),
+);
+</script>
+</body>

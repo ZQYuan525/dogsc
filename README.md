@@ -24,6 +24,12 @@
   <a href="https://github.com/laogou717/dogsc/issues">反馈问题</a>
 </p>
 
+> [!IMPORTANT]
+> **这是 [laogou717/dogsc](https://github.com/laogou717/dogsc) 的 fork，额外收录了一个 Windows 适配版。**
+>
+> - **macOS 版**：本仓库根目录的 Swift 源码来自原作者神烦老狗（[@laogou717](https://github.com/laogou717)），保持与上游同步。正式版请到[原仓库 Releases](https://github.com/laogou717/dogsc/releases/latest) 下载，macOS 的问题也请到原仓库反馈。
+> - **Windows 版**：在 [`windows/`](windows/README.md) 目录，是基于原版 0.1.2 用 Electron + ffmpeg 重写的社区适配版，**不是原作者的官方发布**。安装包在[本仓库 Releases](https://github.com/ZQYuan525/dogsc/releases)，Windows 版的问题请在本仓库反馈，不要提到原仓库。
+
 <p align="center">
   <img src="docs/images/editor.png" alt="DogSC 编辑器：画面预览、背景设置与多轨时间线">
 </p>

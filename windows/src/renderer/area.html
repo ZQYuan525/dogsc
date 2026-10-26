@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-Hans">
+<meta charset="utf-8">
+<title>选择录制区域</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  html, body { background: transparent; cursor: crosshair; }
+  #veil { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.38); }
+  #box { position: fixed; display: none; border: 2px solid #fff; border-radius: 4px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(0, 0, 0, 0.5); }
+  #size { position: absolute; left: 0; top: -30px; padding: 3px 9px; border-radius: 8px; background: rgba(20, 20, 22, 0.88); color: #fff; font: 600 12px var(--font); white-space: nowrap; }
+  #tip { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); padding: 14px 22px; border-radius: 14px; background: rgba(20, 20, 22, 0.85); color: #fff; font-size: 15px; pointer-events: none; }
+  #tip small { display: block; margin-top: 4px; opacity: 0.7; font-size: 12px; text-align: center; }
+</style>
+<body>
+  <div id="veil"></div>
+  <div id="box"><div id="size"></div></div>
+  <div id="tip">拖动鼠标框出要录制的区域<small>松开确认 · Esc 取消</small></div>
+  <script>
+    'use strict';
+    require('./common');
+    const { ipcRenderer } = require('electron');
+    const box = document.getElementById('box');
+    const size = document.getElementById('size');
+    let origin = null;
+    let rect = null;
+    const update = (event) => {
+      rect = { x: Math.min(origin.x, event.clientX), y: Math.min(origin.y, event.clientY), width: Math.abs(event.clientX - origin.x), height: Math.abs(event.clientY - origin.y) };
+      Object.assign(box.style, { display: 'block', left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.width}px`, height: `${rect.height}px` });
+      // 显示的是实际录制像素，而不是缩放后的逻辑尺寸。
+      size.textContent = `${Math.round(rect.width * devicePixelRatio)} × ${Math.round(rect.height * devicePixelRatio)}`;
+      size.style.top = rect.y < 36 ? '6px' : '-30px';
+    };
+    window.addEventListener('mousedown', (event) => {
+      origin = { x: event.clientX, y: event.clientY };
+      document.getElementById('veil').style.display = 'none';
+      document.getElementById('tip').style.display = 'none';
+      update(event);
+    });
+    window.addEventListener('mousemove', (event) => { if (origin) update(event); });
+    window.addEventListener('mouseup', () => {
+      if (!origin) return;
+      // 太小的框多半是误点，当作取消后重新框选。
+      if (rect.width < 48 || rect.height < 48) {
+        origin = null;
+        box.style.display = 'none';
+        document.getElementById('veil').style.display = '';
+        document.getElementById('tip').style.display = '';
+        return;
+      }
+      ipcRenderer.send('area:done', rect);
+    });
+    window.addEventListener('keydown', (event) => { if (event.key === 'Escape') ipcRenderer.send('area:done', null); });
+  </script>
+</body>
+</html>
